@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12100e">
+<meta name="description" content="Shared order list for all-you-can-eat sushi tables. No signup.">
+<title>easy ayce</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23b3271f'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23fdfbf7'/%3E%3C/svg%3E">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    color-scheme: light dark;
+    --bg: #fdfbf7; --fg: #1c1a17; --dim: #6d675f; --line: #e4ded4;
+    --card: #fff; --accent: #b3271f; --ok: #2f7d32; --warn: #b26a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12100e; --fg: #f2ede5; --dim: #9b948a; --line: #2e2a25; --card: #1b1815; --ok: #5cc263; --warn: #e0a33a; --accent: #ff6b5e; }
+  }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-text-size-adjust: 100%;
+    padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
+  }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .sub, .hint { color: var(--dim); font-size: 0.85rem; margin: 0 0 18px; }
+  .hint { margin: 10px 2px 6px; }
+  label { display: block; font-size: 0.8rem; color: var(--dim); margin: 14px 0 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+  input {
+    width: 100%; font: inherit; font-size: 1.1rem; padding: 14px;
+    background: var(--card); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 12px;
+  }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--card); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px;
+  }
+  button:active { transform: scale(0.98); }
+  .primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .danger { color: var(--accent); }
+  .wide { width: 100%; margin-top: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .code { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+  .status { font-size: 0.78rem; color: var(--dim); }
+  .status::before { content: "●"; margin-right: 5px; }
+  .status[data-s="synced"]::before, .status[data-s="hosting"]::before { color: var(--ok); }
+  .status[data-s="connecting"]::before { color: var(--warn); }
+  .status[data-s="closed"]::before { color: var(--accent); }
+  .topActions { display: flex; gap: 8px; }
+  .topActions button { padding: 9px 13px; font-size: 0.85rem; }
+  .people { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+  .people span { font-size: 0.78rem; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+  .tabs { display: flex; gap: 6px; margin: 16px 0 12px; }
+  .tabs button { flex: 1; font-size: 0.9rem; padding: 10px; }
+  .tabs button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  form.add { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  form.add button { font-size: 1.4rem; line-height: 1; padding: 13px 20px; }
+  .tally { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; }
+  .tally button {
+    width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
+    text-align: left; padding: 12px 14px; font-weight: 400;
+  }
+  .tally .plate { font-weight: 650; font-size: 1.05rem; }
+  .tally .count { font-weight: 700; font-size: 1.15rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tally .who { grid-column: 1 / -1; font-size: 0.78rem; color: var(--dim); }
+  .tally .empty { color: var(--dim); font-size: 0.9rem; padding: 18px 4px; text-align: center; }
+  .waiter .group { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  .waiter .group:last-child { border: 0; }
+  .waiter .g-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .waiter .g-label { font-size: 1.35rem; font-weight: 650; }
+  .waiter .g-total { font-size: 1.35rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .waiter .g-who { font-size: 0.82rem; color: var(--dim); }
+  .waiter h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 22px 0 6px; }
+  .waiter .person { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 1rem; }
+  .waiter .person b { font-weight: 650; }
+  .bar { display: flex; gap: 8px; margin-top: 8px; }
+  .bar button { flex: 1; font-size: 0.88rem; }
+  .banner { border: 1px solid var(--warn); color: var(--warn); border-radius: 12px; padding: 10px 14px; font-size: 0.85rem; margin: 12px 0; }
+  dialog { border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--fg); padding: 18px; max-width: 92vw; }
+  dialog img { display: block; width: min(280px, 70vw); height: auto; image-rendering: pixelated; }
+  dialog p { word-break: break-all; font-size: 0.8rem; color: var(--dim); }
+  dialog::backdrop { background: #0008; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px); background: var(--fg); color: var(--bg);
+    padding: 10px 18px; border-radius: 99px; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: 0.2s; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<main>
+  <h1>easy <span>ayce</span></h1>
+
+  <section id="pane-home">
+    <p class="sub">Shared plate counter for all-you-can-eat sushi. No signup — one room per table.</p>
+    <label for="name">Your name</label>
+    <input id="name" placeholder="e.g. Marco" autocomplete="given-name" enterkeyhint="next" maxlength="24">
+    <label for="codeInput">Room code</label>
+    <div class="grid2">
+      <input id="codeInput" placeholder="ABCDE" autocapitalize="characters" autocomplete="off" maxlength="5" spellcheck="false">
+      <button id="joinBtn">Join</button>
+    </div>
+    <button id="createBtn" class="primary wide">Create a table</button>
+  </section>
+
+  <section id="pane-room" hidden>
+    <div class="top">
+      <div>
+        <div class="code" id="code">—</div>
+        <div class="status" id="status" data-s="connecting" aria-live="polite">connecting…</div>
+      </div>
+      <div class="topActions">
+        <button id="shareBtn">Share</button>
+        <button id="qrBtn">QR</button>
+      </div>
+    </div>
+    <div class="people" id="people"></div>
+    <div id="banner"></div>
+
+    <div class="tabs">
+      <button data-tab="order" class="on" aria-pressed="true">Order</button>
+      <button data-tab="waiter" aria-pressed="false">Waiter</button>
+    </div>
+
+    <section id="pane-order">
+      <form class="add" id="addForm" autocomplete="off">
+        <input id="plate" placeholder="Plate ID or name" enterkeyhint="send" autocomplete="off" spellcheck="false" aria-label="Plate ID or name">
+        <button type="submit" aria-label="Add plate">+</button>
+      </form>
+      <p class="hint">Tap any row to order one more.</p>
+      <ul class="tally" id="tally"></ul>
+      <div class="bar">
+        <button id="undoBtn">Undo my last</button>
+        <button id="leaveBtn">Leave</button>
+      </div>
+    </section>
+
+    <section id="pane-waiter" hidden>
+      <div class="waiter" id="waiter"></div>
+      <div class="bar">
+        <button id="copyBtn">Copy</button>
+        <button id="closeBtn" class="danger">Close room</button>
+      </div>
+    </section>
+  </section>
+</main>
+
+<dialog id="qrDlg">
+  <img id="qrImg" alt="QR code to join this room">
+  <p id="qrUrl"></p>
+  <button class="wide" id="qrClose">Done</button>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { Peer } from 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/+esm';
+import * as QR from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm';
+import { clean, uid, newRoom, tally, byPerson, summaryText, MAX_ORDERS } from './lib.js';
+import { iceServers } from './ice.js';
+
+const PREFIX = 'eayce-';                        // namespaces our peer ids on the public broker
+const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // no 0/O/1/I — these get read aloud and typed
+const CODE_LEN = 5;
+const SNAPSHOT_KEY = 'eayce:host';
+const SNAPSHOT_MAX_AGE_MS = 6 * 3600 * 1000;  // older than a long dinner = stale
+const RETRY_MS = 2000;
+const DIAL_TIMEOUT_MS = 6000;
+const HOST_SILENCE_MS = 8000;   // no pong this long -> the link is dead
+const TAKEOVER_GRACE_MS = 8000; // room silent this long -> we host it
+
+const $ = (s, r = document) => r.querySelector(s);
+
+// Storage is denied in some in-app browsers (the ones a QR code opens into), so
+// never let it throw: no memory of the name is fine, a dead page is not.
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch {} },
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let name = (store.get('eayce:name') || '').trim();
+let room = null;
+let peer = null;
+let role = 'idle';           // idle | host | guest
+let hostConn = null;
+const guests = new Map();    // peerId -> DataConnection
+let pending = [];            // orders made while offline, replayed on connect
+let lastGood = Date.now();   // last moment the room answered us
+let route = '';              // 'direct' | 'relay' — how the link actually travels
+let dialing = false;
+let takeoverPeer = null;
+
+/* ---------- local snapshot (the only storage; keeps a reload from wiping the table) ---------- */
+
+function saveSnapshot() {
+  if (role !== 'host' || !room) return;
+  store.set(SNAPSHOT_KEY, JSON.stringify({ savedAt: Date.now(), room }));
+}
+
+function loadSnapshot(code) {
+  try {
+    const v = JSON.parse(store.get(SNAPSHOT_KEY) || 'null');
+    if (!v || !v.room || v.room.code !== code || Date.now() - v.savedAt > SNAPSHOT_MAX_AGE_MS) return null;
+    return v.room;
+  } catch { return null; }
+}
+
+/* ---------- sync: host side ---------- */
+
+const hostId = () => PREFIX + room.code;
+const allOrders = () => room.orders.concat(pending.filter((p) => !room.orders.some((o) => o.id === p.id)));
+
+function setStatus(s) {
+  const el = $('#status');
+  el.dataset.s = s;
+  const base = s === 'hosting' ? 'hosting — you are the room'
+    : s === 'synced' ? 'synced with the table'
+    : s === 'closed' ? 'room closed'
+    : 'connecting…';
+  el.textContent = base + (route && (s === 'synced' || s === 'hosting') ? ` · ${route}` : '');
+}
+
+// Which candidate pair won: direct or through the TURN relay. Only way to know
+// the TURN credentials are doing anything.
+async function sniffRoute(conn) {
+  const pc = conn && conn.peerConnection;
+  if (!pc) return;
+  try {
+    const stats = await pc.getStats();
+    const byId = new Map();
+    stats.forEach((r) => byId.set(r.id, r));
+    let seen = false;
+    let relay = false;
+    stats.forEach((r) => {
+      if (r.type !== 'candidate-pair' || r.state !== 'succeeded' || !(r.selected || r.nominated)) return;
+      seen = true;
+      const local = byId.get(r.localCandidateId);
+      const remote = byId.get(r.remoteCandidateId);
+      if (local?.candidateType === 'relay' || remote?.candidateType === 'relay') relay = true;
+    });
+    if (!seen) return;
+    route = relay ? 'relay' : 'direct';
+    render();
+  } catch {}
+}
+
+function makePeer(id) {
+  const p = new Peer(id, { config: { iceServers: iceServers() } });
+  p.dead = false;
+  // the public broker drops idle sockets; a host that ignores this loses the room.
+  // NB: destroy() emits 'disconnected' too, so never reconnect a peer we killed
+  // or it re-registers the room id and nobody can ever take the room over.
+  p.on('disconnected', () => { if (!p.dead) { try { p.reconnect(); } catch {} } });
+  return p;
+}
+
+function killPeer(p) {
+  if (!p) return;
+  p.dead = true;
+  try { p.destroy(); } catch {}
+}
+
+function send(conn, msg) {
+  try { if (conn.open) conn.send(msg); } catch {}
+}
+
+function broadcast() {
+  if (role === 'host') {
+    for (const c of guests.values()) send(c, { t: 'state', room });
+    saveSnapshot();
+  }
+  render();
+}
+
+function becomeHost(p) {
+  role = 'host';
+  peer = p;
+  if (hostConn) { try { hostConn.close(); } catch {} hostConn = null; }
+  if (!room.orders.length) {
+    const snap = loadSnapshot(room.code);
+    if (snap) room = snap;
+  }
+  // a takeover inherits the old host's ghost; guests re-join and re-announce themselves
+  room.people = { [p.id]: name || 'me' };
+  // orders queued while we were a disconnected guest now land here
+  for (const o of pending) if (!room.orders.some((x) => x.id === o.id)) room.orders.push({ ...o, by: p.id });
+  pending = [];
+  p.on('connection', (conn) => {
+    conn.on('open', () => {
+      guests.set(conn.peer, conn);
+      send(conn, { t: 'state', room });
+      setTimeout(() => sniffRoute(conn), 1500);
+    });
+    conn.on('data', (d) => onGuestMessage(conn, d));
+    conn.on('close', () => {
+      guests.delete(conn.peer);
+      if (room.people[conn.peer] !== undefined) { delete room.people[conn.peer]; broadcast(); }
+    });
+    conn.on('error', () => {});
+  });
+  setStatus(room.closed ? 'closed' : 'hosting');
+  broadcast();
+}
+
+function onGuestMessage(conn, d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'ping') { send(conn, { t: 'pong' }); return; }
+  if (d.t === 'join') {
+    room.people[conn.peer] = clean(d.name) || 'guest';
+    broadcast();
+    return;
+  }
+  if (room.closed) return;
+  if (d.t === 'add' && d.order) {
+    pushOrder({
+      id: String(d.order.id || uid()),
+      label: clean(d.order.label),
+      by: conn.peer,                                  // the sender, not what it claims
+      byName: room.people[conn.peer] || 'guest',
+      ts: Number(d.order.ts) || Date.now(),
+    });
+  }
+  else if (d.t === 'del' || d.t === 'del-mine') {
+    // everyone may only undo their own orders
+    const mine = room.orders.filter((x) => x.by === conn.peer && (d.t === 'del-mine' || x.id === d.id));
+    if (mine.length) { room.orders = room.orders.filter((x) => x !== mine[mine.length - 1]); broadcast(); }
+  } else if (d.t === 'close') {
+    room.closed = true;
+    broadcast();
+  }
+}
+
+function pushOrder(o) {
+  if (!o.label || room.closed || room.orders.some((x) => x.id === o.id)) return;
+  room.orders.push(o);
+  if (room.orders.length > MAX_ORDERS) room.orders.splice(0, room.orders.length - MAX_ORDERS);
+  broadcast();
+}
+
+/* ---------- sync: guest side ---------- */
+
+let retryTimer = null;
+
+function startGuest() {
+  role = 'guest';
+  lastGood = Date.now();
+  peer = makePeer();
+  peer.on('open', () => { if (!hostConn) dial(); });
+  peer.on('error', (e) => { if (e.type === 'peer-unavailable') dialing = false; });
+  if (!retryTimer) retryTimer = setInterval(tick, RETRY_MS);
+}
+
+function tick() {
+  if (role !== 'guest') return;
+  if (hostConn) {
+    // a killed host tab never reports the datachannel as closed, so ask for a pong
+    if (hostConn.open && Date.now() - lastGood <= HOST_SILENCE_MS) { send(hostConn, { t: 'ping' }); return; }
+    try { hostConn.close(); } catch {}
+    hostConn = null;
+    setStatus('connecting');
+    render();
+  }
+  if (!dialing && !takeoverPeer) dial();
+  // the room has been silent too long: claim it so the table keeps working
+  if (!takeoverPeer && Date.now() - lastGood > TAKEOVER_GRACE_MS) tryTakeover();
+}
+
+function dial() {
+  if (role !== 'guest' || dialing || !peer || peer.destroyed || !peer.open) return;
+  dialing = true;
+  let conn;
+  try { conn = peer.connect(hostId(), { reliable: true }); } catch { dialing = false; return; }
+  const t = setTimeout(() => { dialing = false; try { conn.close(); } catch {} }, DIAL_TIMEOUT_MS);
+  conn.on('open', () => {
+    clearTimeout(t);
+    dialing = false;
+    hostConn = conn;
+    lastGood = Date.now();
+    setStatus('synced');
+    send(conn, { t: 'join', name });
+    flushPending(conn);
+    setTimeout(() => sniffRoute(conn), 1500);
+  });
+  conn.on('data', onHostMessage);
+  conn.on('close', () => {
+    clearTimeout(t);
+    dialing = false;
+    if (hostConn === conn) { hostConn = null; setStatus('connecting'); render(); }
+  });
+  conn.on('error', () => { clearTimeout(t); dialing = false; });
+}
+
+function flushPending(conn) {
+  for (const o of pending) send(conn, { t: 'add', order: o });
+}
+
+function onHostMessage(d) {
+  if (!d || typeof d !== 'object') return;
+  lastGood = Date.now();
+  if (d.t !== 'state') return;
+  room = d.room;
+  if (pending.length) pending = pending.filter((p) => !room.orders.some((o) => o.id === p.id));
+  setStatus(room.closed ? 'closed' : hostConn && hostConn.open ? 'synced' : 'connecting');
+  render();
+}
+
+// Nobody answers on the room id: claim it ourselves so the table keeps working.
+function tryTakeover() {
+  if (role !== 'guest' || hostConn || takeoverPeer) return;
+  takeoverPeer = makePeer(hostId());
+  takeoverPeer.on('open', () => {
+    const old = peer;
+    const p = takeoverPeer;
+    takeoverPeer = null;
+    role = 'idle';                 // stop the retry loop before we re-role
+    if (old && old !== p) killPeer(old);
+    peer = p;
+    becomeHost(p);
+  });
+  takeoverPeer.on('error', () => {
+    killPeer(takeoverPeer);
+    takeoverPeer = null;           // someone else hosts, or the id is briefly held: keep dialing
+  });
+}
+
+/* ---------- actions ---------- */
+
+function submit(label) {
+  label = clean(label);
+  if (!label || !room) return;
+  if (room.closed) return toast('This room is closed.');
+  // own id up front: the order survives a dead link and is merged, not duplicated
+  const order = { id: uid(), label, by: peer.id, byName: name || 'me', ts: Date.now() };
+  if (role === 'host') { pushOrder(order); return; }
+  pending.push(order);
+  if (hostConn && hostConn.open) send(hostConn, { t: 'add', order });
+  render();
+}
+
+function undoMine() {
+  if (role === 'host') {
+    const mine = room.orders.filter((o) => o.by === peer.id);
+    if (!mine.length) return toast('Nothing to undo.');
+    room.orders = room.orders.filter((o) => o !== mine[mine.length - 1]);
+    broadcast();
+  } else if (pending.length) {
+    const o = pending.pop();
+    if (hostConn && hostConn.open) send(hostConn, { t: 'del', id: o.id });
+    render();
+  } else if (hostConn && hostConn.open) {
+    send(hostConn, { t: 'del-mine' });   // the host owns the confirmed ids
+  } else {
+    toast('Nothing to undo.');
+  }
+}
+
+function createRoom() {
+  const code = Array.from({ length: CODE_LEN }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+  joinRoom(code, true);
+}
+
+function joinRoom(code, hosting) {
+  code = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{4,8}$/.test(code)) return toast('Room code looks wrong.');
+  saveName();
+  room = newRoom(code);
+  location.hash = 'R=' + code;
+  show('room');
+  render();
+  if (hosting) {
+    const p = makePeer(hostId());
+    p.on('open', () => becomeHost(p));
+    p.on('error', (e) => {
+      if (e.type === 'unavailable-id') { killPeer(p); startGuest(); }
+    });
+  } else {
+    startGuest();
+  }
+}
+
+function saveName() {
+  name = clean($('#name').value) || name;
+  store.set('eayce:name', name);
+}
+
+function leave() {
+  // deliberately does not close the room: the remaining phones take it over
+  killPeer(peer);
+  store.del(SNAPSHOT_KEY);
+  peer = null; role = 'idle'; hostConn = null; guests.clear(); pending = []; room = null;
+  $('#codeInput').value = '';
+  if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  history.replaceState(null, '', location.pathname);
+  show('home');
+}
+
+/* ---------- render ---------- */
+
+function show(which) {
+  $('#pane-home').hidden = which !== 'home';
+  $('#pane-room').hidden = which !== 'room';
+  if (which === 'home') $('#name').value = name;
+}
+
+function render() {
+  if (!room) return;
+  $('#code').textContent = room.code;
+  const status = room.closed ? 'closed' : role === 'host' ? 'hosting' : hostConn && hostConn.open ? 'synced' : 'connecting';
+  setStatus(status);
+
+  const names = Object.values(room.people);
+  $('#people').innerHTML = names.length
+    ? names.map((n) => `<span>${esc(n)}</span>`).join('')
+    : '<span>just you</span>';
+
+  const unsent = pending.length;
+  $('#banner').innerHTML = room.closed ? '<div class="banner">This room is closed. Nobody can add to it anymore.</div>'
+    : unsent ? `<div class="banner">${unsent} plate${unsent > 1 ? 's' : ''} not sent to the table yet — kept on this phone and sent as soon as the room answers.</div>`
+    : (role === 'guest' && !(hostConn && hostConn.open)) ? '<div class="banner">Not synced yet. Anything you add is kept on this phone and sent when the room answers.</div>' : '';
+
+  const orders = allOrders();
+  const groups = tally(orders);
+  $('#tally').innerHTML = groups.length ? groups.map((g) => `
+    <li><button type="button" data-label="${esc(g.label)}">
+      <span class="plate">${esc(g.label)}</span>
+      <span class="count">×${g.total}</span>
+      <span class="who">${g.who.map((w) => `${esc(w.name)}${w.n > 1 ? ' ×' + w.n : ''}`).join(', ')}</span>
+    </button></li>`).join('') : '<li class="empty">Nothing yet.</li>';
+
+  const people = byPerson(orders);
+  $('#waiter').innerHTML = groups.length ? `
+    ${groups.map((g) => `<div class="group">
+      <div class="g-row"><span class="g-label">${esc(g.label)}</span><span class="g-total">× ${g.total}</span></div>
+      <div class="g-who">${g.who.map((w) => `${esc(w.name)} ${w.n}`).join(' · ')}</div>
+    </div>`).join('')}
+    <h2>Who</h2>
+    ${people.map((p) => `<div class="person"><b>${esc(p.name)}</b><span>${p.items.map((i) => `${i.n}× ${esc(i.label)}`).join(', ')}</span></div>`).join('')}
+  ` : '<p class="hint">Nothing ordered yet.</p>';
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2400);
+}
+
+function shareUrl() {
+  return location.origin + location.pathname + '#R=' + room.code;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+/* ---------- wiring ---------- */
+
+$('#name').value = name;
+
+$('#createBtn').onclick = () => {
+  saveName();
+  if (!name) return ($('#name').focus(), toast('Your name first.'));
+  createRoom();
+};
+
+$('#joinBtn').onclick = () => {
+  saveName();
+  if (!name) return ($('#name').focus(), toast('Your name first.'));
+  joinRoom($('#codeInput').value);
+};
+
+$('#codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#joinBtn').click(); });
+
+$('#addForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#plate');
+  submit(input.value);
+  input.value = '';
+  input.focus();
+});
+
+$('#tally').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-label]');
+  if (btn) submit(btn.dataset.label);
+});
+
+$('#undoBtn').onclick = undoMine;
+$('#leaveBtn').onclick = leave;
+
+$('#shareBtn').onclick = async () => {
+  const url = shareUrl();
+  if (navigator.share) { try { await navigator.share({ title: 'easy ayce', url }); return; } catch {} }
+  toast((await copyText(url)) ? 'Link copied.' : url);
+};
+
+$('#qrBtn').onclick = async () => {
+  const url = shareUrl();
+  $('#qrUrl').textContent = url;
+  const dlg = $('#qrDlg');
+  try {
+    const data = await QR.toDataURL(url, { margin: 1, width: 640, errorCorrectionLevel: 'M' });
+    $('#qrImg').src = data;
+    $('#qrImg').hidden = false;
+  } catch {
+    $('#qrImg').hidden = true;
+  }
+  dlg.showModal();
+};
+$('#qrClose').onclick = () => $('#qrDlg').close();
+
+$('#copyBtn').onclick = async () => {
+  toast((await copyText(summaryText({ ...room, orders: allOrders() }))) ? 'Order copied.' : 'Copy failed.');
+};
+
+$('#closeBtn').onclick = () => {
+  if (room.closed) return toast('Already closed.');
+  if (!confirm('Close this room for everyone? The list stays visible but nobody can add more.')) return;
+  if (role === 'host') { room.closed = true; broadcast(); render(); }
+  else if (hostConn && hostConn.open) send(hostConn, { t: 'close' });
+  else toast('No connection — can\u2019t close the room right now.');
+};
+
+document.querySelectorAll('.tabs button').forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach((x) => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+    $('#pane-order').hidden = b.dataset.tab !== 'order';
+    $('#pane-waiter').hidden = b.dataset.tab !== 'waiter';
+  };
+});
+
+// deep link: /#R=ABCDE
+const codeFromUrl = new URLSearchParams(location.hash.slice(1)).get('R');
+if (codeFromUrl) {
+  $('#codeInput').value = codeFromUrl.toUpperCase();
+  if (name) { joinRoom(codeFromUrl); } else { show('home'); $('#name').focus(); }
+} else {
+  show('home');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "easy-ayce",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}
