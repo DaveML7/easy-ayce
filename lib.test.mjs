@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clean, key, tally, byPerson, summaryText, newRoom, MAX_LEN } from './lib.js';
+import { clean, key, tally, byPerson, summaryText, newRoom, roundOf, inRound, roundNumbers, MAX_LEN } from './lib.js';
 
-const o = (label, byName) => ({ id: Math.random().toString(36), label, byName });
+const o = (label, byName, round) => ({ id: Math.random().toString(36), label, byName, ...(round ? { round } : {}) });
 
 test('clean trims, collapses spaces and caps length', () => {
   assert.equal(clean('  12  salmon '), '12 salmon');
@@ -41,7 +41,44 @@ test('totals agree: sum of tally === sum of byPerson === order count', () => {
 
 test('summaryText is stable and readable', () => {
   const room = { ...newRoom('7K2HF'), orders: [o('12', 'ana'), o('12', 'ana'), o('Tuna', 'bo')] };
-  assert.equal(summaryText(room), 'Room 7K2HF\n\n2 x 12\n1 x Tuna\n\nana: 2x 12\nbo: 1x Tuna');
+  assert.equal(
+    summaryText(room),
+    'Room 7K2HF\n\nRound 1 (current)\n2 x 12\n1 x Tuna\n- ana: 2x 12\n- bo: 1x Tuna',
+  );
+});
+
+test('orders with no round number count as round 1 (old snapshots)', () => {
+  assert.equal(roundOf({ label: '12' }), 1);
+  assert.equal(roundOf({ label: '12', round: 3 }), 3);
+});
+
+test('rounds partition the order list without losing or duplicating plates', () => {
+  const orders = [o('12', 'ana', 1), o('tuna', 'bo', 2), o('12', 'bo', 2), o('8', 'ana')];
+  assert.deepEqual(roundNumbers(orders), [1, 2]);
+  assert.equal(inRound(orders, 1).length, 2);
+  assert.equal(inRound(orders, 2).length, 2);
+  assert.equal(inRound(orders, 1).length + inRound(orders, 2).length, orders.length);
+  assert.deepEqual(inRound(orders, 9), []);
+});
+
+test('summaryText lists the newest round first and marks the current one', () => {
+  const room = {
+    ...newRoom('7K2HF'),
+    round: 2,
+    orders: [o('12', 'ana', 1), o('tuna', 'bo', 2)],
+  };
+  const text = summaryText(room);
+  assert.ok(text.indexOf('Round 2 (current)') < text.indexOf('Round 1'), 'newest first');
+  assert.ok(!text.includes('Round 1 (current)'));
+  assert.match(text, /Round 2 \(current\)\n1 x tuna\n- bo: 1x tuna/);
+});
+
+test('advancing the round does not change the tallies of earlier ones', () => {
+  const orders = [o('12', 'ana', 1), o('12', 'ana', 1)];
+  const before = tally(inRound(orders, 1));
+  const room = { ...newRoom('X'), round: 2, orders };
+  assert.deepEqual(tally(inRound(room.orders, 1)), before);
+  assert.deepEqual(tally(inRound(room.orders, 2)), []);
 });
 
 test('empty room does not crash', () => {

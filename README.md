@@ -4,7 +4,8 @@ Shared plate counter for all-you-can-eat sushi tables that still take orders on 
 
 Someone opens a room, shows a QR code, everyone at the table joins with just a name and
 taps the plate IDs they want. Every device sees the same tally, with who ordered what,
-and there is a big readable view to hand to the waiter.
+and there is a big readable view to hand to the waiter. Orders are grouped in **rounds**,
+the way AYCE places actually take them.
 
 ## What it is (and isn't)
 
@@ -65,6 +66,21 @@ rather not publish it, set `TURN = null` and accept Wi-Fi-only reliability.
 
 A wrong password fails silently — no relay candidates, no error, exactly like having no
 TURN at all — which is why the status line reports the route.
+
+## Rounds
+
+A room starts on round 1. Everyone keeps adding plates to the round that is open; when
+the food is on its way, anyone taps **Start round N+1** and the table starts a fresh
+list. The old round is locked and folded away under "1 earlier round", so you can still
+see what you have already had without it cluttering the order you are placing now.
+
+- The waiter view shows the current round first, then an "already ordered" recap.
+- Copy includes every round, newest first — handy for pasting in a group chat.
+- Undo only reaches back into the round you are ordering; earlier rounds are history.
+- A round cannot be started until something is in the current one, so no empty rounds.
+
+Not implemented, because nothing in the app can enforce it: per-round plate caps, or a
+maximum number of rounds. Those stay a rule of the restaurant.
 
 ## How a room stays in sync
 

@@ -80,6 +80,16 @@
   .waiter h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 22px 0 6px; }
   .waiter .person { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 1rem; }
   .waiter .person b { font-weight: 650; }
+  .roundbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 0; }
+  .roundbar b { font-size: 1rem; }
+  .roundbar span { color: var(--dim); font-size: 0.82rem; margin-left: 8px; }
+  .roundbar button { padding: 9px 13px; font-size: 0.82rem; }
+  .roundbar button:disabled { opacity: 0.45; }
+  #earlier { margin: 0 0 16px; }
+  #earlier summary { cursor: pointer; color: var(--dim); font-size: 0.85rem; padding: 8px 2px; }
+  .eround { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; padding: 5px 2px; font-size: 0.85rem; color: var(--dim); }
+  .eround span { min-width: 0; }
+  .eround b { color: var(--fg); font-weight: 600; white-space: nowrap; }
   .bar { display: flex; gap: 8px; margin-top: 8px; }
   .bar button { flex: 1; font-size: 0.88rem; }
   .banner { border: 1px solid var(--warn); color: var(--warn); border-radius: 12px; padding: 10px 14px; font-size: 0.85rem; margin: 12px 0; }
@@ -122,6 +132,11 @@
     <div class="people" id="people"></div>
     <div id="banner"></div>
 
+    <div class="roundbar">
+      <div><b id="roundNo">Round 1</b><span id="roundMeta"></span></div>
+      <button id="newRoundBtn">Start round 2</button>
+    </div>
+
     <div class="tabs">
       <button data-tab="order" class="on" aria-pressed="true">Order</button>
       <button data-tab="waiter" aria-pressed="false">Waiter</button>
@@ -134,6 +149,7 @@
       </form>
       <p class="hint">Tap any row to order one more.</p>
       <ul class="tally" id="tally"></ul>
+      <div id="earlier"></div>
       <div class="bar">
         <button id="undoBtn">Undo my last</button>
         <button id="leaveBtn">Leave</button>
@@ -160,7 +176,7 @@
 <script type="module">
 import { Peer } from 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/+esm';
 import * as QR from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm';
-import { clean, uid, newRoom, tally, byPerson, summaryText, MAX_ORDERS } from './lib.js';
+import { clean, uid, newRoom, tally, byPerson, summaryText, inRound, roundOf, roundNumbers, MAX_ORDERS } from './lib.js';
 import { iceServers } from './ice.js';
 
 const PREFIX = 'eayce-';                        // namespaces our peer ids on the public broker
@@ -324,12 +340,17 @@ function onGuestMessage(conn, d) {
       by: conn.peer,                                  // the sender, not what it claims
       byName: room.people[conn.peer] || 'guest',
       ts: Number(d.order.ts) || Date.now(),
+      round: room.round || 1,                         // the host's round, not the sender's
     });
   }
   else if (d.t === 'del' || d.t === 'del-mine') {
     // everyone may only undo their own orders
     const mine = room.orders.filter((x) => x.by === conn.peer && (d.t === 'del-mine' || x.id === d.id));
     if (mine.length) { room.orders = room.orders.filter((x) => x !== mine[mine.length - 1]); broadcast(); }
+  } else if (d.t === 'round') {
+    const n = room.round || 1;
+    if (inRound(room.orders, n).length) room.round = n + 1;
+    broadcast();
   } else if (d.t === 'close') {
     room.closed = true;
     broadcast();
@@ -436,7 +457,7 @@ function submit(label) {
   if (!label || !room) return;
   if (room.closed) return toast('This room is closed.');
   // own id up front: the order survives a dead link and is merged, not duplicated
-  const order = { id: uid(), label, by: peer.id, byName: name || 'me', ts: Date.now() };
+  const order = { id: uid(), label, by: peer.id, byName: name || 'me', ts: Date.now(), round: room.round || 1 };
   if (role === 'host') { pushOrder(order); return; }
   pending.push(order);
   if (hostConn && hostConn.open) send(hostConn, { t: 'add', order });
@@ -445,7 +466,7 @@ function submit(label) {
 
 function undoMine() {
   if (role === 'host') {
-    const mine = room.orders.filter((o) => o.by === peer.id);
+    const mine = room.orders.filter((o) => o.by === peer.id && roundOf(o) === (room.round || 1));
     if (!mine.length) return toast('Nothing to undo.');
     room.orders = room.orders.filter((o) => o !== mine[mine.length - 1]);
     broadcast();
@@ -457,6 +478,21 @@ function undoMine() {
     send(hostConn, { t: 'del-mine' });   // the host owns the confirmed ids
   } else {
     toast('Nothing to undo.');
+  }
+}
+
+function startRound() {
+  if (!room || room.closed) return toast('This room is closed.');
+  const cur = room.round || 1;
+  if (!inRound(allOrders(), cur).length) return toast(`Nothing in round ${cur} yet.`);
+  if (!confirm(`Start round ${cur + 1}? Round ${cur} stays visible but is locked.`)) return;
+  if (role === 'host') {
+    room.round = cur + 1;
+    broadcast();
+  } else if (hostConn && hostConn.open) {
+    send(hostConn, { t: 'round' });
+  } else {
+    toast('No connection — try again in a moment.');
   }
 }
 
@@ -525,23 +561,42 @@ function render() {
     : (role === 'guest' && !(hostConn && hostConn.open)) ? '<div class="banner">Not synced yet. Anything you add is kept on this phone and sent when the room answers.</div>' : '';
 
   const orders = allOrders();
-  const groups = tally(orders);
+  const cur = room.round || 1;
+  const curOrders = inRound(orders, cur);
+  const earlier = roundNumbers(orders).filter((n) => n < cur).reverse();
+  const groups = tally(curOrders);
+  const oneLine = (items) => tally(items).map((g) => `${g.total}× ${esc(g.label)}`).join(' · ');
+
+  $('#roundNo').textContent = `Round ${cur}`;
+  $('#roundMeta').textContent = curOrders.length ? `${curOrders.length} plate${curOrders.length > 1 ? 's' : ''}` : 'nothing yet';
+  const next = $('#newRoundBtn');
+  next.textContent = `Start round ${cur + 1}`;
+  next.disabled = room.closed || !curOrders.length;
+
   $('#tally').innerHTML = groups.length ? groups.map((g) => `
     <li><button type="button" data-label="${esc(g.label)}">
       <span class="plate">${esc(g.label)}</span>
       <span class="count">×${g.total}</span>
       <span class="who">${g.who.map((w) => `${esc(w.name)}${w.n > 1 ? ' ×' + w.n : ''}`).join(', ')}</span>
-    </button></li>`).join('') : '<li class="empty">Nothing yet.</li>';
+    </button></li>`).join('') : `<li class="empty">Nothing in round ${cur} yet.</li>`;
 
-  const people = byPerson(orders);
-  $('#waiter').innerHTML = groups.length ? `
+  $('#earlier').innerHTML = earlier.length ? `<details>
+    <summary>${earlier.length} earlier round${earlier.length > 1 ? 's' : ''}</summary>
+    ${earlier.map((n) => `<div class="eround"><b>Round ${n}</b><span>${oneLine(inRound(orders, n))}</span></div>`).join('')}
+  </details>` : '';
+
+  const people = byPerson(curOrders);
+  const earlierWho = earlier.length ? `<h2>Already ordered</h2>
+    ${earlier.map((n) => `<div class="eround"><b>Round ${n}</b><span>${oneLine(inRound(orders, n))}</span></div>`).join('')}` : '';
+  $('#waiter').innerHTML = (groups.length ? `
+    <h2>Round ${cur}</h2>
     ${groups.map((g) => `<div class="group">
       <div class="g-row"><span class="g-label">${esc(g.label)}</span><span class="g-total">× ${g.total}</span></div>
       <div class="g-who">${g.who.map((w) => `${esc(w.name)} ${w.n}`).join(' · ')}</div>
     </div>`).join('')}
     <h2>Who</h2>
     ${people.map((p) => `<div class="person"><b>${esc(p.name)}</b><span>${p.items.map((i) => `${i.n}× ${esc(i.label)}`).join(', ')}</span></div>`).join('')}
-  ` : '<p class="hint">Nothing ordered yet.</p>';
+  ` : `<p class="hint">Nothing in round ${cur} yet.</p>`) + earlierWho;
 }
 
 let toastTimer = null;
@@ -593,6 +648,7 @@ $('#tally').addEventListener('click', (e) => {
 });
 
 $('#undoBtn').onclick = undoMine;
+$('#newRoundBtn').onclick = startRound;
 $('#leaveBtn').onclick = leave;
 
 $('#shareBtn').onclick = async () => {

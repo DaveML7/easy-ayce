@@ -11,7 +11,13 @@ export const key = (s) => clean(s).toLowerCase();
 
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
-export const newRoom = (code) => ({ code, orders: [], people: {}, closed: false });
+export const newRoom = (code) => ({ code, round: 1, orders: [], people: {}, closed: false });
+
+// AYCE places take orders in rounds. Every order carries the round it was placed
+// in; orders from before rounds existed have no number and count as round 1.
+export const roundOf = (order) => order.round || 1;
+export const inRound = (orders, n) => orders.filter((o) => roundOf(o) === n);
+export const roundNumbers = (orders) => [...new Set(orders.map(roundOf))].sort((a, b) => a - b);
 
 // One entry per distinct plate, busiest first. First spelling seen wins as the label.
 export function tally(orders) {
@@ -56,10 +62,18 @@ export function byPerson(orders) {
 }
 
 // Plain text, for pasting into a chat or reading out to the waiter.
+// Newest round first, each with what to bring and who asked for it.
 export function summaryText(room) {
-  const plates = tally(room.orders).map((g) => `${g.total} x ${g.label}`).join('\n');
-  const people = byPerson(room.orders)
-    .map((p) => `${p.name}: ${p.items.map((i) => `${i.n}x ${i.label}`).join(', ')}`)
-    .join('\n');
-  return [`Room ${room.code}`, plates, people].filter((s) => s).join('\n\n');
+  const cur = room.round || 1;
+  const rounds = roundNumbers(room.orders).reverse();
+  if (!rounds.length) return `Room ${room.code}`;
+  const blocks = rounds.map((n) => {
+    const items = inRound(room.orders, n);
+    const plates = tally(items).map((g) => `${g.total} x ${g.label}`).join('\n');
+    const people = byPerson(items)
+      .map((p) => `- ${p.name}: ${p.items.map((i) => `${i.n}x ${i.label}`).join(', ')}`)
+      .join('\n');
+    return [`Round ${n}${n === cur ? ' (current)' : ''}`, plates, people].filter(Boolean).join('\n');
+  });
+  return [`Room ${room.code}`, ...blocks].join('\n\n');
 }
