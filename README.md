@@ -5,7 +5,8 @@ Shared plate counter for all-you-can-eat sushi tables that still take orders on 
 Someone opens a room, shows a QR code, everyone at the table joins with just a name and
 taps the plate IDs they want. Every device sees the same tally, with who ordered what,
 and there is a big readable view to hand to the waiter. Orders are grouped in **rounds**,
-the way AYCE places actually take them.
+the way AYCE places actually take them. The interface speaks **English and Italian**, and
+the landing page carries a short "how it works" guide.
 
 ## What it is (and isn't)
 
@@ -17,7 +18,7 @@ the way AYCE places actually take them.
 
 ## Deploy on GitHub Pages
 
-1. Push `index.html`, `lib.js`, `ice.js` to a repo.
+1. Push `index.html`, `lib.js`, `ice.js`, `i18n.js` to a repo.
 2. Repo → Settings → Pages → Source: `Deploy from a branch`, branch `main`, folder `/ (root)`.
 3. Open `https://<you>.github.io/<repo>/`.
 
@@ -82,6 +83,17 @@ see what you have already had without it cluttering the order you are placing no
 Not implemented, because nothing in the app can enforce it: per-round plate caps, or a
 maximum number of rounds. Those stay a rule of the restaurant.
 
+## Languages
+
+The `EN / IT` switch sits top-right on every screen and the choice is remembered on that
+phone. First visit follows the browser language. Everyone picks their own — the shared
+order is one list, only the labels around it change, so two phones can show the same room
+in different languages.
+
+All text lives in `i18n.js`. To add a language, copy the `en` block, translate the values,
+add the code to `LANGS`, and the tests will tell you if any key or `{placeholder}` is
+missing compared to English.
+
 ## How a room stays in sync
 
 One device hosts the room (its peer id is derived from the room code); everyone else
@@ -113,5 +125,6 @@ broadcasts the whole state. It is small enough that full-state broadcasts are fr
 | --- | --- |
 | `index.html` | UI, styles and all app logic |
 | `ice.js` | STUN/TURN configuration (the one file you edit for TURN) |
+| `i18n.js` | all UI text, English and Italian |
 | `lib.js` | pure tally/summary logic (imported by the page and the test) |
 | `*.test.mjs` | unit tests, no dependencies |

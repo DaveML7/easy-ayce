@@ -63,17 +63,17 @@ export function byPerson(orders) {
 
 // Plain text, for pasting into a chat or reading out to the waiter.
 // Newest round first, each with what to bring and who asked for it.
-export function summaryText(room) {
+export function summaryText(room, labels = { room: 'Room', round: 'Round', current: '(current)' }) {
   const cur = room.round || 1;
   const rounds = roundNumbers(room.orders).reverse();
-  if (!rounds.length) return `Room ${room.code}`;
+  if (!rounds.length) return `${labels.room} ${room.code}`;
   const blocks = rounds.map((n) => {
     const items = inRound(room.orders, n);
     const plates = tally(items).map((g) => `${g.total} x ${g.label}`).join('\n');
     const people = byPerson(items)
       .map((p) => `- ${p.name}: ${p.items.map((i) => `${i.n}x ${i.label}`).join(', ')}`)
       .join('\n');
-    return [`Round ${n}${n === cur ? ' (current)' : ''}`, plates, people].filter(Boolean).join('\n');
+    return [`${labels.round} ${n}${n === cur ? ' ' + labels.current : ''}`, plates, people].filter(Boolean).join('\n');
   });
-  return [`Room ${room.code}`, ...blocks].join('\n\n');
+  return [`${labels.room} ${room.code}`, ...blocks].join('\n\n');
 }

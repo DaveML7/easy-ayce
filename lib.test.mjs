@@ -73,6 +73,15 @@ test('summaryText lists the newest round first and marks the current one', () =>
   assert.match(text, /Round 2 \(current\)\n1 x tuna\n- bo: 1x tuna/);
 });
 
+test('summaryText can be labelled in another language', () => {
+  const room = { ...newRoom('7K2HF'), round: 2, orders: [o('12', 'ana', 1), o('tuna', 'bo', 2)] };
+  const it = { room: 'Stanza', round: 'Turno', current: '(attuale)' };
+  assert.equal(
+    summaryText(room, it),
+    'Stanza 7K2HF\n\nTurno 2 (attuale)\n1 x tuna\n- bo: 1x tuna\n\nTurno 1\n1 x 12\n- ana: 1x 12',
+  );
+});
+
 test('advancing the round does not change the tallies of earlier ones', () => {
   const orders = [o('12', 'ana', 1), o('12', 'ana', 1)];
   const before = tally(inRound(orders, 1));
